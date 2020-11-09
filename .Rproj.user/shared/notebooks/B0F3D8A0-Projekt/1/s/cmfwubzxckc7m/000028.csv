@@ -1,0 +1,10 @@
+"0","goalies.data = read_xls(""NHL_Goalies_2016-17.xls"")"
+"2","New names:
+* SA -> SA...22
+* GA -> GA...24
+* `AdjSV%` -> `AdjSV%...64`
+* `AdjSV%` -> `AdjSV%...74`
+* SA -> SA...77
+* ...
+"
+"0","head(goalies.data)"

@@ -1,0 +1,25 @@
+---
+  title: "Projekt"
+  author: ""
+  subtitle: Analiza podataka o igračima NHL lige
+  output:
+    pdf_document: default
+---
+---
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(readr)
+library(readxl)
+```
+# Učitavanje podataka
+Učitavamo podatke i analiziramo kako oni izgledaju.
+```{r}
+players.data = read_xls("NHL_2016-17.xls")
+head(players.data)
+goalies.data = read_xls("NHL_Goalies_2016-17.xls")
+head(goalies.data)
+
+```
