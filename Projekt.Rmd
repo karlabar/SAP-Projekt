@@ -18,24 +18,34 @@ library(readxl)
 Učitavamo podatke i analiziramo kako oni izgledaju.
 ```{r}
 players.data = read_xls("NHL_2016-17.xls")
+colnames(players.data) <- players.data[2,]
+players.data <- players.data[-1, ]
+players.data <- players.data[-1, ]
 head(players.data)
 goalies.data = read_xls("NHL_Goalies_2016-17.xls")
 head(goalies.data)
 ```
 ```{r}
-numberOfRows = nrow(players.data)
-y <- players.data[c(3:numberOfRows),]
-x <- y[,166, data = FALSE]
-head(x)
-```
-```{r}
-x <- x %>% drop_na()
-z <- as.numeric(unlist(x))
-View(z)
-h = hist(z, main="Salary histogram",
-         xlab="salary",
-         ylab='number of players',
-         col="blue"
-)
+s = players.data$Salary
+s = as.data.frame.numeric(s)
+s <- as.numeric(unlist(s))
 ```
 
+```{r}
+hLog = hist(log(s), main = paste("Histogram of Salary"),
+            breaks = 20,
+         xlab = "Salary", 
+         ylab = "Number of players", 
+         col = "lightblue")
+#h = hist(s, main = paste("Histogram of Salary"),
+#         xlab = "Salary", 
+#         ylab = "Number of players", 
+#         col = "blue")
+h100 = hist(s/1000, main = paste("Histogram of Salary"),
+         xlab = "Salary [*1000]", 
+         ylab = "Number of players", 
+         col = "blue")
+#barplot(summary(s), )
+cat('Prosječna plaća igrača iznosi ',
+    mean(s, na.rm = TRUE),'dolara.\n')
+```
