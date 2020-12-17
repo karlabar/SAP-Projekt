@@ -21,5 +21,21 @@ players.data = read_xls("NHL_2016-17.xls")
 head(players.data)
 goalies.data = read_xls("NHL_Goalies_2016-17.xls")
 head(goalies.data)
-
 ```
+```{r}
+numberOfRows = nrow(players.data)
+y <- players.data[c(3:numberOfRows),]
+x <- y[,166, data = FALSE]
+head(x)
+```
+```{r}
+x <- x %>% drop_na()
+z <- as.numeric(unlist(x))
+View(z)
+h = hist(z, main="Salary histogram",
+         xlab="salary",
+         ylab='number of players',
+         col="blue"
+)
+```
+
