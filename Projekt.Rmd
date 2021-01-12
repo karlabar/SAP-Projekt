@@ -23,7 +23,7 @@ players.data <- players.data[-1, ]
 players.data <- players.data[-1, ]
 head(players.data)
 goalies.data = read_xls("NHL_Goalies_2016-17.xls")
-head(goalies.data)
+View(goalies.data)
 ```
 ```{r}
 s = players.data$Salary
@@ -37,15 +37,105 @@ hLog = hist(log(s), main = paste("Histogram of Salary"),
          xlab = "Salary", 
          ylab = "Number of players", 
          col = "lightblue")
-#h = hist(s, main = paste("Histogram of Salary"),
-#         xlab = "Salary", 
-#         ylab = "Number of players", 
-#         col = "blue")
 h100 = hist(s/1000, main = paste("Histogram of Salary"),
          xlab = "Salary [*1000]", 
          ylab = "Number of players", 
          col = "blue")
-#barplot(summary(s), )
 cat('Prosječna plaća igrača iznosi ',
     mean(s, na.rm = TRUE),'dolara.\n')
+```
+```{r fig.width = 14, fig.height=5}
+players_copy = data.frame(players.data)
+tracemem(players.data)==tracemem(players_copy) # je li ista memorija?
+untracemem(players_copy)
+
+ for (column_name in c("LW/RW", "RW/LW", "LW/C", "C/LW", "LW/C/RW", "RW/C/LW", "LW/RW/C", "RW/LW/C", "C/LW/RW", "C/RW/LW", "LW")){
+     players_copy$Position[players_copy$Position == column_name] = "L";
+ }
+for (column_name in c("RW/C", "C/RW", "LW/RW", "RW/LW","LW/C/RW", "RW/C/LW", "LW/RW/C", "RW/LW/C", "C/LW/RW", "C/RW/LW", "RW")){
+     players_copy$Position[players_copy$Position == column_name] = "R";
+}
+for (column_name in c("LW/C", "C/LW", "LW/C/RW", "RW/C/LW", "LW/RW/C", "RW/LW/C", "C/LW/RW", "C/RW/LW", "C", "RW/C", "C/RW")){
+     players_copy$Position[players_copy$Position == column_name] = "C";
+}
+for (column_name in c("D/C", "C/D", "RW/D", "D/RW", "LW/D", "D/LW")){
+     players_copy$Position[players_copy$Position == column_name] = "D";
+}
+for (column_name in c("LW/C/RW", "C/RW/LW", "LW/RW/C", "RW/C/LW", "RW/LW/C", "C/LW/RW", "C/RW/LW")){
+     players_copy$Position[players_copy$Position == column_name] = "C/LW/RW";
+}
+
+tbl = table(players_copy$Position, 
+            players_copy$Hand)
+
+added_margins_tbl = addmargins(tbl)
+print(added_margins_tbl)
+
+for (col_names in colnames(added_margins_tbl)){
+  for (row_names in rownames(added_margins_tbl)){
+    if (!(row_names == 'Sum' | col_names == 'Sum') ){
+      cat('Očekivane frekvencije za razred ',col_names,'-',row_names,': ',(added_margins_tbl[row_names,'Sum'] * added_margins_tbl['Sum',col_names]) / added_margins_tbl['Sum','Sum'],'\n')
+    }
+  }
+}
+#chi^2 test nezavisnosti
+test <- chisq.test(tbl,correct=F)
+test
+print("p-vrijednost chi^2 testa:")
+test$p.value
+```
+Dobivena p-vrijednost je jako mala, što ide u prilog odbacivanju H0 hipoteze koja pretpostavlja nezavisnost varijabli pozicija i preferirane ruke.
+
+Koje pozicije osvajaju više bodova(PTS)?
+```{r}
+require(fastDummies)
+players.data.d <- dummy_cols(players_copy,select_columns='Position')
+#View(players.data.d)
+var.test(players.data.d$Position_C, players.data.d$Position_D, conf.level = 0.95, paired = T)
+
+t.test(players.data.d$Position_C, players.data.d$Position_D, conf.level = 0.95, var.equal = F, paired = T)
+```
+
+```{r}
+#data of potential outliers
+players.data.d$PTS <- as.numeric(players.data.d$PTS)
+out<-boxplot.stats(players.data.d$PTS)$out
+out_ind <- which(players.data.d$PTS %in% c(out))
+out_ind
+#boxplot
+ggplot(players.data.d) +
+  aes(x = "", y = as.numeric(PTS)) +
+  geom_boxplot(fill = "#0c4c8a") +
+  theme_minimal()
+#qq plot
+qqnorm(players.data.d$PTS, pch = 1, frame = FALSE)
+qqline(players.data.d$PTS, col = "steelblue", lwd = 2)
+
+```
+
+Postoji li veza izmedu danih varijabli i pla´ce igraˇca? Isprobajte nekoliko, po vama smislenih
+kombinacija varijabli i odredite koja od njih najbolje predvida pla´cu igraˇca.
+```{r}
+plot(players.data$Salary, players.data$TOI) #salary vs time on ice
+plot(players.data$Salary, players.data$G) #salary vs goals
+plot(players.data$Salary, players.data$DftYr)#salary vs year drafted
+plot(players.data$Salary, players.data$`FO%`) #salary vs faceoff wins
+plot(players.data$Salary, players.data$`A1`) #salary vs first assist
+```
+```{r}
+linReg = lm(Salary ~ G , players.data)
+#summary(linReg)
+#plot(linReg$residuals)
+#hist(linReg$residuals)
+hist(rstandard(linReg))
+qqnorm(rstandard(linReg))
+qqline(rstandard(linReg))
+plot(linReg$fitted.values,linReg$residuals) #reziduale je dobro prikazati u ovisnosti o procjenama modela
+year <- format(as.Date(players.data$Born, format="%Y-%m-%d"), "%Y")
+#year
+#plot(as.numeric(year),linReg$residuals)
+lg = lm(players.data$Salary ~ year + players.data$G)
+lg$terms
+qqnorm(rstandard(lg))
+qqline(rstandard(lg))
 ```
