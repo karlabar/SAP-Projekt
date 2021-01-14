@@ -14,79 +14,128 @@ library(tidyverse)
 library(readr)
 library(readxl)
 ```
-# Učitavanje podataka
+# Uvod
+
+U ovom projektu analizirat ćemo podatke o igračima NHL lige. Dobiveni podaci su opširni i sadrže mnogo međusobno povezanih informacija te ćemo se zato fokusirati na manji odabrani podskup. Bavit ćemo se osvojenim bodovima igrača, preferiranom rukom za udarce, pozicijama i plaćama igrača koje ćemo naposlijetku izmodelirati regresijom. Dodati još neke stvari o hokeju jer ja ne znam nista o hokeju
+
+Analiza u ovom radu sastoji se od tri dijela: deskriptivna analiza, testovi sredina i intervalne procjene, te
+analiza zasnovana na linearnoj regresiji i analizi varijance.
+
+
+# Deskriptivna analiza
 Učitavamo podatke i analiziramo kako oni izgledaju.
-```{r}
+```{r, include=FALSE}
 players.data = read_xls("NHL_2016-17.xls")
 colnames(players.data) <- players.data[2,]
 players.data <- players.data[-1, ]
 players.data <- players.data[-1, ]
-head(players.data)
+#head(players.data)
 goalies.data = read_xls("NHL_Goalies_2016-17.xls")
-View(goalies.data)
+#View(goalies.data)
 ```
 ```{r}
 s = players.data$Salary
 s = as.data.frame.numeric(s)
 s <- as.numeric(unlist(s))
 ```
-
-```{r}
+Histogramima ćemo prikazati razdiobu plaća igrača na logaritamskoj skali i umanjene 1000 puta. Promatranjem prikaza i testom normalnosti zaključujemo da se ne radi o normalnoj distribuciji, nego desno zakrivljenoj. 
+```{r, include=FALSE}
 hLog = hist(log(s), main = paste("Histogram of Salary"),
-            breaks = 20,
+            breaks = 40,
          xlab = "Salary", 
          ylab = "Number of players", 
          col = "lightblue")
+
 h100 = hist(s/1000, main = paste("Histogram of Salary"),
-         xlab = "Salary [*1000]", 
+         xlab = "Salary [/1000]", 
          ylab = "Number of players", 
          col = "blue")
 cat('Prosječna plaća igrača iznosi ',
     mean(s, na.rm = TRUE),'dolara.\n')
+#qqnorm(s, pch = 1, frame = FALSE)
+#shapiro.test(s)
+
 ```
-```{r fig.width = 14, fig.height=5}
+# Testiranje hipoteza
+
+
+### Pretpostavka: igrači na nekoj određenoj poziciji značajno su više plaćeni od od drugih igrača
+
+```{r fig.width = 14, fig.height=5, include=FALSE}
 players_copy = data.frame(players.data)
 tracemem(players.data)==tracemem(players_copy) # je li ista memorija?
 untracemem(players_copy)
-
- for (column_name in c("LW/RW", "RW/LW", "LW/C", "C/LW", "LW/C/RW", "RW/C/LW", "LW/RW/C", "RW/LW/C", "C/LW/RW", "C/RW/LW", "LW")){
+```
+Igrače s miješanim pozicijama generalizirat ćemo po prvoj spomenutoj poziciji tako da svaki igrač ima samo jednu poziciju.
+```{r fig.width = 14, fig.height=5}
+for (column_name in c("LW/RW", "LW/C", "LW/C/RW", "LW/RW/C", "LW")){
      players_copy$Position[players_copy$Position == column_name] = "L";
  }
-for (column_name in c("RW/C", "C/RW", "LW/RW", "RW/LW","LW/C/RW", "RW/C/LW", "LW/RW/C", "RW/LW/C", "C/LW/RW", "C/RW/LW", "RW")){
+for (column_name in c("RW/C", "C/RW", "RW/LW","LW/C/RW", "RW/C/LW", "RW/LW/C", "C/LW/RW", "C/RW/LW", "RW")){
      players_copy$Position[players_copy$Position == column_name] = "R";
 }
-for (column_name in c("LW/C", "C/LW", "LW/C/RW", "RW/C/LW", "LW/RW/C", "RW/LW/C", "C/LW/RW", "C/RW/LW", "C", "RW/C", "C/RW")){
+for (column_name in c("LW/C", "C/LW","C/LW/RW", "C/RW/LW", "C", "C/RW", "C/LW/C")){
      players_copy$Position[players_copy$Position == column_name] = "C";
 }
-for (column_name in c("D/C", "C/D", "RW/D", "D/RW", "LW/D", "D/LW")){
+for (column_name in c("D/C", "C/D", "D/RW", "D/LW")){
      players_copy$Position[players_copy$Position == column_name] = "D";
 }
 #for (column_name in c("LW/C/RW", "C/RW/LW", "LW/RW/C", "RW/C/LW", "RW/LW/C", "C/LW/RW", "C/RW/LW")){
   #   players_copy$Position[players_copy$Position == column_name] = "C/LW/RW";
 #}
-
-tbl = table(players_copy$Position, 
-            players_copy$Hand)
-
-added_margins_tbl = addmargins(tbl)
-print(added_margins_tbl)
-
-for (col_names in colnames(added_margins_tbl)){
-  for (row_names in rownames(added_margins_tbl)){
-    if (!(row_names == 'Sum' | col_names == 'Sum') ){
-      cat('Očekivane frekvencije za razred ',col_names,'-',row_names,': ',(added_margins_tbl[row_names,'Sum'] * added_margins_tbl['Sum',col_names]) / added_margins_tbl['Sum','Sum'],'\n')
-    }
-  }
-}
-#chi^2 test nezavisnosti
-test <- chisq.test(tbl,correct=F)
-test
-print("p-vrijednost chi^2 testa:")
-test$p.value
 ```
-Dobivena p-vrijednost je jako mala, što ide u prilog odbacivanju H0 hipoteze koja pretpostavlja nezavisnost varijabli pozicija i preferirane ruke.
+Iz slijedećih boxplotova nije vidljiva bitna razlika u plaćama igrača na različitim pozicijama. Zamjećujemo da pozicija "D" ima nešto veći medijan od ostalih pozicija. To možemo pokušati provjeriti ANOVA metodom.
+```{r, include=FALSE}
+require(fastDummies)
+library("ggpubr")
 
-Koje pozicije osvajaju više bodova(PTS)?
+players.data.d <- dummy_cols(players_copy,select_columns='Position')
+players.data.d$Salary <- as.numeric(players.data.d$Salary)
+out<-boxplot.stats(players.data.d$Salary)$out
+out_ind <- which(players.data.d$Salary %in% c(out))
+out_ind
+library(dplyr)
+group_by(players.data.d, Position) %>%
+  summarise(
+    count = n(),
+    median = median(Salary, na.rm = TRUE),
+    IQR = IQR(Salary, na.rm = TRUE)
+  )
+ggboxplot(players.data.d, x = "Position", y = "Salary", 
+          color = "Position",
+          ylab = "Salary", xlab = "Position")
+```
+Pretpostavke ANOVA metode su nezavisnost podataka, normalna distribucija i homogenost varijanci, pa ćemo homogenost varijanci 
+provjeriti Bartletovim testom:
+\begin{align*}
+  H_0 & : \sigma_{"L"}^2 = \sigma_{"R"}^2 = \sigma_{"C"}^2= \sigma_{"D"}^2 \\
+  H_1 & : \neg H_0.
+\end{align*}
+razine značajnosti $\alpha = 0.05$.
+
+```{r}
+l <- subset(players.data.d, Position == "L")
+bartlett.test(Salary~Position, players_copy)
+```
+
+Dobivena p vrijednost manja je od razine značajnosti što znači da se odbacuje $H_0$ pa ne možemo
+koristiti ANOVA-u.
+Umjesto ANOVA-e provest ćemo neparametarski test, Kruskal-Wallis test razine značajnosti $\alpha = 0.05$ koji za sobom ne povlači pretpostavke koje dolaze s parametarskim testovima.
+Kruskal-Wallis test slabiji je od ANOVA-e i uspoređuje medijane, ali ovaj test u kombinaciji s gornjim prikazom dokazat će približnu jednakost plaća po pozicijama igrača.
+
+\begin{align*}
+  H_0 & : M_{"L"} = M_{"R"} = M_{"C"}=M_{"D"} \\
+  H_1 & : \neg H_0.
+\end{align*}
+
+```{r}
+kruskal.test(Salary~Position, players_copy)
+```
+Dobivena p-vrijednost veća je od razine značajnosti te iz toga zaključujemo da su plaće igrača ne razlikuju značajno po njihovim pozicijama. 
+Ne odbacujemo $H_0$.
+
+### Pretpostavka: igrači na nekoj određenoj poziciji postižu značajno više bodova od drugih igrača
+
 ```{r}
 require(fastDummies)
 players.data.d <- dummy_cols(players_copy,select_columns='Position')
@@ -162,6 +211,33 @@ ks.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95,
 Rezultati provedenog Kolmogorov-Smirnovljeva idu u prilog odbacivanju hipoteze da kategorije lijevog i
 desnog krila imaju jednaku razdiobu.
 
+#Linearna regresija
+
+##Ovisnost pozicije o preferiranoj ruci udarca
+
+```{r fig.width = 14, fig.height=5}
+tbl = table(players_copy$Position, 
+            players_copy$Hand)
+
+added_margins_tbl = addmargins(tbl)
+print(added_margins_tbl)
+
+for (col_names in colnames(added_margins_tbl)){
+  for (row_names in rownames(added_margins_tbl)){
+    if (!(row_names == 'Sum' | col_names == 'Sum') ){
+      cat('Očekivane frekvencije za razred ',col_names,'-',row_names,': ',(added_margins_tbl[row_names,'Sum'] * added_margins_tbl['Sum',col_names]) / added_margins_tbl['Sum','Sum'],'\n')
+    }
+  }
+}
+#chi^2 test nezavisnosti
+test <- chisq.test(tbl,correct=F)
+test
+print("p-vrijednost chi^2 testa:")
+test$p.value
+```
+Dobivena p-vrijednost je jako mala, što ide u prilog odbacivanju H0 hipoteze koja pretpostavlja nezavisnost varijabli pozicija i preferirane ruke.
+
+##Ovisnost plaće igrača o više varijabli
 Postoji li veza izmedu danih varijabli i pla´ce igraˇca? Isprobajte nekoliko, po vama smislenih
 kombinacija varijabli i odredite koja od njih najbolje predvida pla´cu igraˇca.
 ```{r}
