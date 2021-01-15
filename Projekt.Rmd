@@ -39,7 +39,7 @@ s = as.data.frame.numeric(s)
 s <- as.numeric(unlist(s))
 ```
 Histogramima ćemo prikazati razdiobu plaća igrača na logaritamskoj skali i umanjene 1000 puta. Promatranjem prikaza i testom normalnosti zaključujemo da se ne radi o normalnoj distribuciji, nego desno zakrivljenoj. 
-```{r, include=FALSE}
+```{r}
 hLog = hist(log(s), main = paste("Histogram of Salary"),
             breaks = 40,
          xlab = "Salary", 
@@ -211,11 +211,17 @@ ks.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95,
 Rezultati provedenog Kolmogorov-Smirnovljeva idu u prilog odbacivanju hipoteze da kategorije lijevog i
 desnog krila imaju jednaku razdiobu.
 
-#Linearna regresija
-
 ##Ovisnost pozicije o preferiranoj ruci udarca
 
+Nulta hipoteza je da varijable nemaju linearnu ovisnost, te ako dobijemo p vrijednost manju od 0.05 odbacit
+ćemo nultu hipotezu i prihvatiti alternativnu - varijable imaju linearnu ovisnost.
 ```{r fig.width = 14, fig.height=5}
+
+ggplot(players_copy, aes(x =Hand , y = Position)) +
+  geom_jitter() + 
+  geom_smooth(method = "lm") +
+  labs(title = "Ovisnost plaće o TOI")
+
 tbl = table(players_copy$Position, 
             players_copy$Hand)
 
@@ -237,9 +243,13 @@ test$p.value
 ```
 Dobivena p-vrijednost je jako mala, što ide u prilog odbacivanju H0 hipoteze koja pretpostavlja nezavisnost varijabli pozicija i preferirane ruke.
 
+
 ##Ovisnost plaće igrača o više varijabli
-Postoji li veza izmedu danih varijabli i pla´ce igraˇca? Isprobajte nekoliko, po vama smislenih
-kombinacija varijabli i odredite koja od njih najbolje predvida pla´cu igraˇca.
+
+Za problem određivanja veze plaća igrača i ostalih faktora koji utječu na plaća napravit ćemo kompleksniji
+model koji će koristiti više regresora - model višestruke regresije.
+Kao regresore uzet ćemo ?? i ??, a za reakciju plaće igrača.
+
 ```{r}
 plot(players.data$Salary, players.data$TOI) #salary vs time on ice
 plot(players.data$Salary, players.data$G) #salary vs goals
@@ -257,6 +267,8 @@ qqnorm(rstandard(linReg))
 qqline(rstandard(linReg))
 plot(linReg$fitted.values,linReg$residuals) #reziduale je dobro prikazati u ovisnosti o procjenama modela
 year <- format(as.Date(players.data$Born, format="%Y-%m-%d"), "%Y")
+
+
 #year
 #plot(as.numeric(year),linReg$residuals)
 lg = lm(players.data$Salary ~ year + players.data$G)
@@ -264,3 +276,8 @@ lg$terms
 qqnorm(rstandard(lg))
 qqline(rstandard(lg))
 ```
+```{r}
+#players.lm = lm(Hand ~ Position, players_copy)
+#summary(payers.lm)
+```
+
