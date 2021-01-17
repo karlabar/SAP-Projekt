@@ -16,7 +16,7 @@ library(readxl)
 ```
 # Uvod
 
-U ovom projektu analizirat ćemo podatke o igračima NHL lige. Dobiveni podaci su opširni i sadrže mnogo međusobno povezanih informacija te ćemo se zato fokusirati na manji odabrani podskup. Bavit ćemo se osvojenim bodovima igrača, preferiranom rukom za udarce, pozicijama i plaćama igrača koje ćemo naposlijetku izmodelirati regresijom. Dodati još neke stvari o hokeju jer ja ne znam nista o hokeju
+U ovom projektu analizirat ćemo podatke o igračima NHL lige. Dobiveni podaci su opširni i sadrže mnogo međusobno povezanih informacija te ćemo se zato fokusirati na manji odabrani podskup. Bavit ćemo se osvojenim bodovima igrača, preferiranom rukom za udarce, pozicijama i plaćama igrača koje ćemo naposlijetku izmodelirati regresijom. 
 
 Analiza u ovom radu sastoji se od tri dijela: deskriptivna analiza, testovi sredina i intervalne procjene, te
 analiza zasnovana na linearnoj regresiji i analizi varijance.
@@ -24,32 +24,40 @@ analiza zasnovana na linearnoj regresiji i analizi varijance.
 
 # Deskriptivna analiza
 Učitavamo podatke i analiziramo kako oni izgledaju.
-```{r, include=FALSE}
+```{r}
 players.data = read_xls("NHL_2016-17.xls")
 colnames(players.data) <- players.data[2,]
 players.data <- players.data[-1, ]
 players.data <- players.data[-1, ]
-#head(players.data)
+
 goalies.data = read_xls("NHL_Goalies_2016-17.xls")
 #View(goalies.data)
+#head(players.data)
 ```
 ```{r}
 s = players.data$Salary
 s = as.data.frame.numeric(s)
 s <- as.numeric(unlist(s))
 ```
-Histogramima ćemo prikazati razdiobu plaća igrača na logaritamskoj skali i umanjene 1000 puta. Promatranjem prikaza i testom normalnosti zaključujemo da se ne radi o normalnoj distribuciji, nego desno zakrivljenoj. 
-```{r, include=FALSE}
-hLog = hist(log(s), main = paste("Histogram of Salary"),
-            breaks = 40,
-         xlab = "Salary", 
-         ylab = "Number of players", 
-         col = "lightblue")
+
+1. zadatak
+
+Podatke o plaćama prvo smo prikazali pomoću histograma, ali iz takvog histograma nismo mogli izvući nikakve zaključke o tipu distribucije, osim da nije normalna. Zato smo pokušali normalizirat podatke pomoću logaritamskih transformacija, te ponovo prikazali histogramima. Promatranjem rezultata i testom normalnosti zaključujemo da se ne radi o normalnoj distribuciji, nego o desno zakrivljenoj.
+
+```{r}
 
 h100 = hist(s/1000, main = paste("Histogram of Salary"),
          xlab = "Salary [/1000]", 
          ylab = "Number of players", 
          col = "blue")
+
+hLog = hist(log(s), main = paste("Histogram of Salary"),
+            breaks = 20,
+         xlab = "Salary", 
+         ylab = "Number of players", 
+         col = "lightblue")
+
+
 cat('Prosječna plaća igrača iznosi ',
     mean(s, na.rm = TRUE),'dolara.\n')
 #qqnorm(s, pch = 1, frame = FALSE)
@@ -61,13 +69,13 @@ cat('Prosječna plaća igrača iznosi ',
 
 ### Pretpostavka: igrači na nekoj određenoj poziciji značajno su više plaćeni od od drugih igrača
 
-```{r fig.width = 14, fig.height=5, include=FALSE}
-players_copy = data.frame(players.data)
-tracemem(players.data)==tracemem(players_copy) # je li ista memorija?
-untracemem(players_copy)
-```
-Igrače s miješanim pozicijama generalizirat ćemo po prvoj spomenutoj poziciji tako da svaki igrač ima samo jednu poziciju.
+Igrače s miješanim pozicijama generalizirat ćemo po prvoj spomenutoj poziciji tako da svaki igrač ima samo jednu. S obzirom da u hokeju igrači mogu igrati na više pozicija jednako dobro, svjesni smo da ćemo ovom generalizacijom djelomično izgubiti na točnosti rezultata.
+
+
 ```{r fig.width = 14, fig.height=5}
+
+players_copy = data.frame(players.data)
+
 for (column_name in c("LW/RW", "LW/C", "LW/C/RW", "LW/RW/C", "LW")){
      players_copy$Position[players_copy$Position == column_name] = "L";
  }
@@ -83,14 +91,19 @@ for (column_name in c("D/C", "C/D", "D/RW", "D/LW")){
 #for (column_name in c("LW/C/RW", "C/RW/LW", "LW/RW/C", "RW/C/LW", "RW/LW/C", "C/LW/RW", "C/RW/LW")){
   #   players_copy$Position[players_copy$Position == column_name] = "C/LW/RW";
 #}
+
 ```
-Iz slijedećih boxplotova nije vidljiva bitna razlika u plaćama igrača na različitim pozicijama. Zamjećujemo da pozicija "D" ima nešto veći medijan od ostalih pozicija. To možemo pokušati provjeriti ANOVA metodom.
-```{r, include=FALSE}
+
+
+Iz sljedećih boxplotova nije vidljiva bitna razlika u plaćama igrača na različitim pozicijama. Zamjećujemo da bekovi (D) imaju nešto veći medijan plaća od ostalih pozicija. To možemo provjeriti ANOVA metodom.
+
+
+```{r}
 require(fastDummies)
 library("ggpubr")
 
 players.data.d <- dummy_cols(players_copy,select_columns='Position')
-players.data.d$Salary <- as.numeric(players.data.d$Salary)
+players.data.d$Salary <- as.numeric(players.data.d$Salary) / 1000
 out<-boxplot.stats(players.data.d$Salary)$out
 out_ind <- which(players.data.d$Salary %in% c(out))
 out_ind
@@ -101,17 +114,18 @@ group_by(players.data.d, Position) %>%
     median = median(Salary, na.rm = TRUE),
     IQR = IQR(Salary, na.rm = TRUE)
   )
-ggboxplot(players.data.d, x = "Position", y = "Salary", 
-          color = "Position",
-          ylab = "Salary", xlab = "Position")
 ```
+
 Pretpostavke ANOVA metode su nezavisnost podataka, normalna distribucija i homogenost varijanci, pa ćemo homogenost varijanci 
 provjeriti Bartletovim testom:
+
+
 \begin{align*}
   H_0 & : \sigma_{"L"}^2 = \sigma_{"R"}^2 = \sigma_{"C"}^2= \sigma_{"D"}^2 \\
   H_1 & : \neg H_0.
 \end{align*}
 razine značajnosti $\alpha = 0.05$.
+
 
 ```{r}
 l <- subset(players.data.d, Position == "L")
@@ -134,20 +148,53 @@ kruskal.test(Salary~Position, players_copy)
 Dobivena p-vrijednost veća je od razine značajnosti te iz toga zaključujemo da su plaće igrača ne razlikuju značajno po njihovim pozicijama. 
 Ne odbacujemo $H_0$.
 
+2. zadatak
+
+Pretpostavka je da igračeva preferirana ruka za udarac ovisi o poziciji koju igra. 
+
+Prvo smo izračunali frekvencije pojedinog razreda kako bismo mogli provesti hi kvadrat test nad danim podatcima, i time potvrditi nezavisnost podataka ovisno o dobivenoj p vrijednosti.
+
+```{r}
+tbl = table(players_copy$Position, 
+            players_copy$Hand)
+
+added_margins_tbl = addmargins(tbl)
+print(added_margins_tbl)
+
+for (col_names in colnames(added_margins_tbl)){
+  for (row_names in rownames(added_margins_tbl)){
+    if (!(row_names == 'Sum' | col_names == 'Sum') ){
+      cat('Očekivane frekvencije za razred ',col_names,'-',row_names,': ',(added_margins_tbl[row_names,'Sum'] * added_margins_tbl['Sum',col_names]) / added_margins_tbl['Sum','Sum'],'\n')
+    }
+  }
+}
+#chi^2 test nezavisnosti
+test <- chisq.test(tbl,correct=F)
+test
+print("p-vrijednost chi^2 testa:")
+test$p.value
+```
+
+Dobivena p vrijednost je mala, što ide u prilog odbacivaju hipotezi H0, odnosno da su pozicija igrača i preferirana ruka za udarac zavisne varijable.
+
+
 ### Pretpostavka: igrači na nekoj određenoj poziciji postižu značajno više bodova od drugih igrača
 
 ```{r}
 require(fastDummies)
 players.data.d <- dummy_cols(players_copy,select_columns='Position')
-#View(players.data.d)
-```
 
-```{r}
 #data of potential outliers
 players.data.d$PTS <- as.numeric(players.data.d$PTS)
 out<-boxplot.stats(players.data.d$PTS)$out
 out_ind <- which(players.data.d$PTS %in% c(out))
 out_ind
+```
+
+Provjerom vrijednosti outliera utvrdili smo da su svi podatci valjani i ne predstavljaju odstupanja od modela. Naime, izrazito velike vrijednosti broja osvojenih bodova pojedinog igrača može se pripisati činjenici da najbolji igrači znatno odstupaju od ostatka, dok se izrazito male vrijednosti odnose na igrače koji su ili propustili velik broj utakmica zbog ozljeda ili su jednostavno lošiji. Iz tog razloga nećemo ukloniti outliere iz skupa podataka.
+
+
+```{r}
 #boxplot
 ggplot(players.data.d) +
   aes(x = "", y = as.numeric(PTS)) +
@@ -161,7 +208,9 @@ qqline(players.data.d$PTS, col = "steelblue", lwd = 2)
 hist(players.data.d$PTS)
 
 ```
-Iz histograma zaključujemo da zavisna varijabla(PTS) nije normalno distribuirana. Zato koristimo Wilcoxon-Mann-Whitney test
+
+Iz histograma zaključujemo da zavisna varijabla (PTS) nije normalno distribuirana. Zato koristimo Wilcoxon-Mann-Whitney test
+
 ```{r}
 library(dplyr)
 group_by(players.data.d, Position) %>%
@@ -178,14 +227,21 @@ ggboxplot(players.data.d, x = "Position", y = "PTS",
           ylab = "PTS", xlab = "Position")
 
 ```
+
+Prema tablici možemo zaključiti da najveći broj bodova postižu igrači na lijevom i desnom krilu, s medijanom 17.0, odnosno 15.5, što nam i potvrđuje boxplot. Također, uočili smo veliku sličnost između broja bodova osvojenih od strane centara i desnih krila te lijevih i desnih krila, pa smo pomoću Spearmanovog korelacijskog koeficijenta provjerili koje pozicije su više korelirane.
+
+
 ```{r}
 res2 <-cor.test(players.data.d$Position_C, players.data.d$Position_R,  method = "spearman")
 res2
 res1 <-cor.test(players.data.d$Position_L, players.data.d$Position_R,  method = "spearman")
 res1
 ```
+Pošto je dobivena vrijednost Spearmanovog testa po apsolutnoj vrijednosti veća u slučaju usporedbe centra i desnog krila, odlučujemo se za daljnje testiranje tih dviju kategorija. 
 
-Prema tablici možemo zaključiti da najveći broj bodova postižu igrači na lijevom i desnom krilu, s medijanom 17.0, odnosno 15.5, što nam i potvrđuje boxplot.
+????
+
+
 ```{r}
 kruskal.test(players.data.d$Position, players.data.d$PTS)
 ```
@@ -193,18 +249,24 @@ kruskal.test(players.data.d$Position, players.data.d$PTS)
 #f test
 var.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95, paired = T)
 ```
+
 Iz provedenog F testa vidimo da se hipoteza o jednakosti varijanci ne može odbaciti na razini znacajnosti od 5%, stoga cemo u t-testu postaviti parametar var.equal na True.
+
 ```{r}
 #t test
 t.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95, paired = T)
 ```
+
 Iz provedenog t-testa uocavamo da je p vrijedost izuzetno malena, stoga hipotezu da su aritmeticke sredine
 kategorija position_L i position_R jednake odbacujemo na razini znacajnosti od 5%. U nastavku cemo provjeriti imaju li te dvije kategorije jednaku razdiobu.
+
 ```{r}
 wilcox.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95, paired = T)
 ```
+
 Nakon provođenja Wilcoxonova testa dobivamo jednake rezultate kao i u t-testu, dakle odbacujemo nultu
 hipotezu.
+
 ```{r}
 ks.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95, var.equal = T, paired = T)
 ```
@@ -238,29 +300,310 @@ test$p.value
 Dobivena p-vrijednost je jako mala, što ide u prilog odbacivanju H0 hipoteze koja pretpostavlja nezavisnost varijabli pozicija i preferirane ruke.
 
 ##Ovisnost plaće igrača o više varijabli
-Postoji li veza izmedu danih varijabli i pla´ce igraˇca? Isprobajte nekoliko, po vama smislenih
-kombinacija varijabli i odredite koja od njih najbolje predvida pla´cu igraˇca.
+
+Prije početka analiziranja svih padataka u našem modelu potrebno je provjeriti pretpostavke.
+One ne moraju biti stoposto istinite, ali ne smiju biti jako narušene.
+Za regresore je važna prepostavka da oni međusobno nisu jako korelirani, a za reziduale pretpostavka njihove normalnosti s jednakom varijancom.
+
+
 ```{r}
-plot(players.data$Salary, players.data$TOI) #salary vs time on ice
-plot(players.data$Salary, players.data$G) #salary vs goals
-plot(players.data$Salary, players.data$DftYr)#salary vs year drafted
-plot(players.data$Salary, players.data$`FO%`) #salary vs faceoff wins
-plot(players.data$Salary, players.data$`A1`) #salary vs first assist
+plot(players.data$`TOI/GP`, players.data$Salary) #salary vs time on ice
+plot(players.data$G, players.data$Salary) #salary vs goals
+plot(players.data$`iFOW`, players.data$Salary) #salary vs faceoff wins
+plot(players.data$`A`, players.data$Salary) #salary vs first assist
 ```
+
 ```{r}
-linReg = lm(Salary ~ G , players.data)
-#summary(linReg)
-#plot(linReg$residuals)
-#hist(linReg$residuals)
-hist(rstandard(linReg))
+players.data$`+/-` <- as.numeric(players.data$`+/-`)
+players.data$GP <- as.numeric(players.data$`GP`)
+players.data$A <- as.numeric(players.data$A)
+players.data$PTS <- as.numeric(players.data$PTS)
+players.data$`TOI/GP` <- as.numeric(players.data$`TOI/GP`)
+players.data$`TOI` <- as.numeric(players.data$`TOI`)
+players.data$`DSA` <- as.numeric(players.data$`DSA`)
+players.data$`FO%` <- as.numeric(players.data$`FO%`)
+players.data$`iFOW` <- as.numeric(players.data$`iFOW`)
+players.data$`GF` <- as.numeric(players.data$`GF`)
+players.data$`GS` <- as.numeric(players.data$`GS`)
+players.data$`iBLK` <- as.numeric(players.data$`iBLK`)
+players.data$`GWG` <- as.numeric(players.data$`GWG`)
+players.data$`iSF` <- as.numeric(players.data$`iSF`)
+players.data$`iPEND` <- as.numeric(players.data$`iPEND`)
+players.data$`iPENT` <- as.numeric(players.data$`iPENT`)
+players.data$`iTKA` <- as.numeric(players.data$`iTKA`)
+players.data$`iGVA` <- as.numeric(players.data$`iGVA`)
+players.data$`iHF` <- as.numeric(players.data$`iHF`)
+
+```
+
+```{r}
+fit.toigp <- lm(Salary~`TOI/GP`, data=players.data) #linearni model salary i toi/gp
+fit.g = lm(Salary~G, data=players.data) #linearni model salary i goals
+fit.a = lm(Salary~`A`, data=players.data) #linearni model salary i A
+fit.fow = lm(Salary~`iFOW`, data=players.data) #linearni model salary i fow
+```
+
+
+
+Za provjeru normalnosti reziduala koristimo histogram, Q-Q plot i Kolmogorov-Smirnovljev test.
+
+```{r}
+hist((fit.toigp$residuals))
+hist(rstandard(fit.toigp))
+
+qqnorm(rstandard(fit.toigp))
+qqline(rstandard(fit.toigp))
+
+hist((fit.g$residuals))
+hist(rstandard(fit.g))
+
+qqnorm(rstandard(fit.g))
+qqline(rstandard(fit.g))
+
+hist((fit.fow$residuals))
+hist(rstandard(fit.fow))
+
+qqnorm(rstandard(fit.fow))
+qqline(rstandard(fit.fow))
+
+hist((fit.a$residuals))
+hist(rstandard(fit.a))
+
+qqnorm(rstandard(fit.a))
+qqline(rstandard(fit.a))
+
+ks.test(rstandard(fit.toigp), 'pnorm') 
+
+```
+Nakon provjere pretpostavki slijedi korištenje nekih testova koji nam služe za procijenu koeficijenata, i nakon toga ocjena kvalitete modela
+T-test će imati pretpostavku da nam je neki koeficijen jednak nuli.
+
+Koeficijent regresije tj. R^2 nam je najpoznatiji ocjenjitelj kvalitete našeg modela, a on nam govori koliko dobro naš regresijski model objašnjava varijancu u y. Njegova najveća i najbolja vrijednost je 1 te težimo da nam je upravo što bliži tome. Dodavanjem regresora vrijednost R^2 će sigurno biti bolja kao i sami model, ali nam je cilj imati što bolji model s manje parametara. Zato se često koristi prilagođeni R^2 koji u obzir uzima i broj parametara tj. x-eva.
+Na kraju ako bismo htijeli tetsirati naš čitavi model koristimo F-test.
+
+
+
+```{r}
+#colnames(players.data)
+brisanje <- players.data[-c(44)]
+brisanje <- brisanje[-c(41)]
+brisanje <- brisanje[-c(60)]
+brisanje <- brisanje[-c(60)]
+brisanje <- brisanje[-c(64)]
+brisanje <- brisanje[-c(53)]
+brisanje <- brisanje[-c(29)]
+brisanje <- brisanje[-c(58)]
+
+```
+
+
+```{r}
+demo <- brisanje %>% select(`First Name`, `Last Name`,Position,  `+/-` , MGL, DAP,HA, DPS, PTS, PIM,iBLK,   `BLK%`,  `SCA`, `TOI%`, `TOI/GP`, G, A, iPEND, iPENT, iCF, iSF, iTKA, iGVA, iFOW, iHF, GF, `PTS`, Pass, Salary)
+
+demo$deltaPEN <- (demo$iPEND - demo$iPENT)
+demo$deltaTG <- (demo$iTKA - demo$iGVA)
+
+for (column_name in c("LW/RW", "LW/C", "LW/C/RW", "LW/RW/C", "LW")){
+     demo$Position[demo$Position == column_name] = "L";
+ }
+for (column_name in c("RW/C", "C/RW", "RW/LW","LW/C/RW", "RW/C/LW", "RW/LW/C", "C/LW/RW", "C/RW/LW", "RW")){
+     demo$Position[demo$Position == column_name] = "R";
+}
+for (column_name in c("LW/C", "C/LW","C/LW/RW", "C/RW/LW", "C", "C/RW", "C/LW/C")){
+     demo$Position[demo$Position == column_name] = "C";
+}
+for (column_name in c("D/C", "C/D", "D/RW", "D/LW")){
+     demo$Position[demo$Position == column_name] = "D";
+}
+
+demo$`G` <- as.numeric(demo$`G`)
+demo$`A` <- as.numeric(demo$`A`)
+demo$`iSF` <- as.numeric(demo$`iSF`)
+demo$`iFOW` <- as.numeric(demo$`iFOW`)
+demo$`iHF` <- as.numeric(demo$`iHF`)
+demo$`iCF` <- as.numeric(demo$`iCF`)
+demo$`deltaPEN` <- as.numeric(demo$`deltaPEN`)
+demo$`deltaTG` <- as.numeric(demo$`deltaTG`)
+demo$`GF` <- as.numeric(demo$`GF`)
+demo$`PTS` <- as.numeric(demo$`PTS`)
+demo$`+/-` <- as.numeric(demo$`+/-`)
+demo$`TOI/GP` <- as.numeric(demo$`TOI/GP`)
+demo$`MGL` <- as.numeric(demo$`MGL`)
+demo$`SCA` <- as.numeric(demo$`SCA`)
+demo$`TOI%` <- as.numeric(demo$`TOI%`)
+demo$`BLK%` <- as.numeric(demo$`BLK%`)
+demo$`DAP` <- as.numeric(demo$`DAP`)
+demo$`PTS` <- as.numeric(demo$`PTS`)
+demo$`PIM` <- as.numeric(demo$`PIM`)
+demo$`DPS` <- as.numeric(demo$`DPS`)
+demo$`HA` <- as.numeric(demo$`HA`)
+demo$`iBLK` <- as.numeric(demo$`iBLK`)
+
+demo
+```
+
+
+```{r}
+centersDemo <- demo %>% filter(Position == "C")
+centersRegression = lm(Salary ~ iFOW   + A + MGL , centersDemo)
+summary(centersRegression)
+plot(centersRegression$residuals, pch = 16, col = "green")
+qqnorm(rstandard(centersRegression))
+qqline(rstandard(centersRegression))
+```
+
+```{r}
+defenseDemo <- demo %>% filter(Position == "D")
+defenseRegression = lm(Salary ~ `TOI/GP` + PTS + iTKA + iBLK, defenseDemo)
+summary(defenseRegression)
+plot(defenseRegression$residuals, pch = 16, col = "green")
+qqnorm(rstandard(defenseRegression))
+qqline(rstandard(defenseRegression))
+```
+
+```{r}
+wingsDemo <- demo %>% filter(Position == "R" || Position == "L")
+wingsRegression = lm(Salary ~ iFOW + GF   + `TOI/GP`+ `iBLK`  , wingsDemo)
+summary(wingsRegression)
+plot(wingsRegression$residuals, pch = 16, col = "green")
+qqnorm(rstandard(wingsRegression))
+qqline(rstandard(wingsRegression))
+```
+
+
+```{r}
+
+#linReg = lm(Salary ~`+/-`+ `TOI/GP`  + `GF` + `iSF` + `iHF`, players.data)
+linReg = lm(Salary ~`TOI/GP`  + `G` + `A` + `iFOW`, players.data)
+
+summary(linReg)
 qqnorm(rstandard(linReg))
 qqline(rstandard(linReg))
-plot(linReg$fitted.values,linReg$residuals) #reziduale je dobro prikazati u ovisnosti o procjenama modela
-year <- format(as.Date(players.data$Born, format="%Y-%m-%d"), "%Y")
-#year
-#plot(as.numeric(year),linReg$residuals)
-lg = lm(players.data$Salary ~ year + players.data$G)
-lg$terms
-qqnorm(rstandard(lg))
-qqline(rstandard(lg))
 ```
+
+##Ovisnost visine i težine o poziciji
+Visinu i težinu cemo podijeliti u tri kategorije kako bi postale kategorijske varijable.
+Visinu cmo podijeliti u: nižiV(66-72 inca), srednjiV(73 - 75 inca) i visiV(76 - 81 inca).
+Težinu dijelimo u: lakšiT(157-190 lb), srednjiT(191-210 lb) i težiT(211-265 lb).
+```{r}
+data <- players.data.d;
+data$Ht <- as.numeric(data$Ht)
+data$Wt <- as.numeric(data$Wt)
+for (column_name in seq.int(66, 72)){
+     data$Ht[data$Ht == column_name] = "niziV";
+}
+for (column_name in seq.int(73, 75)){
+     data$Ht[data$Ht == column_name] = "srednjiV";
+}
+for (column_name in seq.int(76, 81)){
+     data$Ht[data$Ht == column_name] = "visiV";
+}
+
+for (column_name in seq.int(157, 190)){
+     data$Wt[data$Wt == column_name] = "laksiT";
+}
+for (column_name in seq.int(191, 210)){
+     data$Wt[data$Wt == column_name] = "srednjiT";
+}
+for (column_name in seq.int(211, 265)){
+     data$Wt[data$Wt == column_name] = "teziT";
+}
+```
+
+Pozicije za koje smo promatrali raspodjelu visine i težine smo podijelili u 3 kategorije(centar, krila i obrambeni igraci). Rezultate za pojedinu kategoriju prikazali smo kružnim grafikonima. 
+
+```{r}
+par(mfrow=c(3,1))
+#statistika za visinu
+slice <- data %>% filter(Position == "D", Ht == "niziV")
+`num1` <- count(slice)$n
+slicee <- data %>% filter(Position == "D", Ht == "srednjiV")
+`num2` <- count(slicee)$n
+sliceee <- data %>% filter(Position == "D", Ht == "visiV")
+`num3` <- count(sliceee)$n
+slices <- c(`num1`, `num2`, `num3`)
+lbls <- c("nizi", "srednje visoki", "visoki")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of heights for defense players")
+
+slice <- data %>% filter(Position == "C", Ht == "niziV")
+`num1` <- count(slice)$n
+slicee <- data %>% filter(Position == "C", Ht == "srednjiV")
+`num2` <- count(slicee)$n
+sliceee <- data %>% filter(Position == "C", Ht == "visiV")
+`num3` <- count(sliceee)$n
+slices <- c(`num1`, `num2`, `num3`)
+lbls <- c("nizi", "srednje visoki", "visoki")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of heights for center players")
+
+slice <- data %>% filter((Position == "R" || Position == "L"), Ht == "niziV")
+`num1` <- count(slice)$n
+slicee <- data %>% filter((Position == "R" || Position == "L"), Ht == "srednjiV")
+`num2` <- count(slicee)$n
+sliceee <- data %>% filter((Position == "R" || Position == "L"), Ht == "visiV")
+`num3` <- count(sliceee)$n
+slices <- c(`num1`, `num2`, `num3`)
+lbls <- c("nizi", "srednje visoki", "visoki")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of heights for wing players")
+```
+Gledajuci grafove, možemo primijetiti dominantost odredenih karakteristika kod pojedinih pozicija.
+Obrambeni igraci imaju najveci udio visokih igraca, dok su centralni igraci pretežito niži. Krila su uglavnom srednje visoka, ali imaju veci udio nižih igraca.
+```{r}
+#tezina
+par(mfrow=c(3,1))
+slice <- data %>% filter(Position == "D", Wt == "laksiT")
+`num1` <- count(slice)$n
+slicee <- data %>% filter(Position == "D", Wt == "srednjiT")
+`num2` <- count(slicee)$n
+sliceee <- data %>% filter(Position == "D", Wt == "teziT")
+`num3` <- count(sliceee)$n
+slices <- c(`num1`, `num2`, `num3`)
+lbls <- c("laksi", "srednje teski", "teski")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of weights for defense players")
+
+slice <- data %>% filter(Position == "C", Wt == "laksiT")
+`num1` <- count(slice)$n
+slicee <- data %>% filter(Position == "C", Wt == "srednjiT")
+`num2` <- count(slicee)$n
+sliceee <- data %>% filter(Position == "C", Wt == "teziT")
+`num3` <- count(sliceee)$n
+slices <- c(`num1`, `num2`, `num3`)
+lbls <- c("laksi", "srednje teski", "teski")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of weights for center players")
+
+slice <- data %>% filter((Position == "R" || Position == "L"), Wt == "laksiT")
+`num1` <- count(slice)$n
+slicee <- data %>% filter((Position == "R" || Position == "L"), Wt == "srednjiT")
+`num2` <- count(slicee)$n
+sliceee <- data %>% filter((Position == "R" || Position == "L"), Wt == "teziT")
+`num3` <- count(sliceee)$n
+slices <- c(`num1`, `num2`, `num3`)
+lbls <- c("laksi", "srednje teski", "teski")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) # add percents to labels
+lbls <- paste(lbls,"%",sep="") # ad % to labels
+pie(slices,labels = lbls, col=rainbow(length(lbls)),
+   main="Pie Chart of weights for wing players")
+
+```
+Usporedujuci težine igraca, vidimo da prate trendove kao u prethodnom grafu. Obrambeni igraci imaju najveci udio težih igraca, centralni lakših, dok je kod krila uniformna razdioba težina.
+Ovi podaci odgovaraju našim pretpostavkama zato što je prednost napadaca, posebice centralnih, da su niži i lakši. Zbog toga imaju niže težište što im omogucuje da su brži i okretniji. S druge strane, prednost obrambenih igraca je veca visina i težina kako bi što bolje zaustavio protivnika i blokirao udarac.
