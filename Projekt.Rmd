@@ -177,6 +177,7 @@ test$p.value
 
 Dobivena p vrijednost je mala, što ide u prilog odbacivaju hipotezi H0, odnosno da su pozicija igrača i preferirana ruka za udarac zavisne varijable.
 
+3. zadatak
 
 ### Pretpostavka: igrači na nekoj određenoj poziciji postižu značajno više bodova od drugih igrača
 
@@ -209,7 +210,7 @@ hist(players.data.d$PTS)
 
 ```
 
-Iz histograma zaključujemo da zavisna varijabla (PTS) nije normalno distribuirana. Zato koristimo Wilcoxon-Mann-Whitney test
+Iz histograma zaključujemo da zavisna varijabla (PTS) nije normalno distribuirana.
 
 ```{r}
 library(dplyr)
@@ -228,95 +229,32 @@ ggboxplot(players.data.d, x = "Position", y = "PTS",
 
 ```
 
-Prema tablici možemo zaključiti da najveći broj bodova postižu igrači na lijevom i desnom krilu, s medijanom 17.0, odnosno 15.5, što nam i potvrđuje boxplot. Također, uočili smo veliku sličnost između broja bodova osvojenih od strane centara i desnih krila te lijevih i desnih krila, pa smo pomoću Spearmanovog korelacijskog koeficijenta provjerili koje pozicije su više korelirane.
-
-
-```{r}
-res2 <-cor.test(players.data.d$Position_C, players.data.d$Position_R,  method = "spearman")
-res2
-res1 <-cor.test(players.data.d$Position_L, players.data.d$Position_R,  method = "spearman")
-res1
-```
-Pošto je dobivena vrijednost Spearmanovog testa po apsolutnoj vrijednosti veća u slučaju usporedbe centra i desnog krila, odlučujemo se za daljnje testiranje tih dviju kategorija. 
-
-????
+U tablici vidimo da najveći broj bodova postižu napadači iako razlika između bodova napadača i bekova nije velika. Koristeći Kruskal-Wallisov test provjeravamo jednakost medijana svih pozicija kako bismo se uvjerili da je razlika između osvojenih bodova napadača i bekova uistinu zanemariva.
 
 
 ```{r}
 kruskal.test(players.data.d$Position, players.data.d$PTS)
 ```
-```{r}
-#f test
-var.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95, paired = T)
-```
+S obzirom na malu p vrijednost testa, odbacujemo hipotezu i možemo zaključiti da medijani pozicija ipak nisu približno jednaki, to jest da više bodova osvajaju napadači, što nam i potvrđuje boxplot.
 
-Iz provedenog F testa vidimo da se hipoteza o jednakosti varijanci ne može odbaciti na razini znacajnosti od 5%, stoga cemo u t-testu postaviti parametar var.equal na True.
 
-```{r}
-#t test
-t.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95, paired = T)
-```
-
-Iz provedenog t-testa uocavamo da je p vrijedost izuzetno malena, stoga hipotezu da su aritmeticke sredine
-kategorija position_L i position_R jednake odbacujemo na razini znacajnosti od 5%. U nastavku cemo provjeriti imaju li te dvije kategorije jednaku razdiobu.
-
-```{r}
-wilcox.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95, paired = T)
-```
-
-Nakon provođenja Wilcoxonova testa dobivamo jednake rezultate kao i u t-testu, dakle odbacujemo nultu
-hipotezu.
-
-```{r}
-ks.test(players.data.d$Position_L, players.data.d$Position_R, conf.level = 0.95, var.equal = T, paired = T)
-```
-Rezultati provedenog Kolmogorov-Smirnovljeva idu u prilog odbacivanju hipoteze da kategorije lijevog i
-desnog krila imaju jednaku razdiobu.
 
 #Linearna regresija
 
-##Ovisnost pozicije o preferiranoj ruci udarca
-
-```{r fig.width = 14, fig.height=5}
-tbl = table(players_copy$Position, 
-            players_copy$Hand)
-
-added_margins_tbl = addmargins(tbl)
-print(added_margins_tbl)
-
-for (col_names in colnames(added_margins_tbl)){
-  for (row_names in rownames(added_margins_tbl)){
-    if (!(row_names == 'Sum' | col_names == 'Sum') ){
-      cat('Očekivane frekvencije za razred ',col_names,'-',row_names,': ',(added_margins_tbl[row_names,'Sum'] * added_margins_tbl['Sum',col_names]) / added_margins_tbl['Sum','Sum'],'\n')
-    }
-  }
-}
-#chi^2 test nezavisnosti
-test <- chisq.test(tbl,correct=F)
-test
-print("p-vrijednost chi^2 testa:")
-test$p.value
-```
-Dobivena p-vrijednost je jako mala, što ide u prilog odbacivanju H0 hipoteze koja pretpostavlja nezavisnost varijabli pozicija i preferirane ruke.
+4. zadatak
 
 ##Ovisnost plaće igrača o više varijabli
 
 Prije početka analiziranja svih padataka u našem modelu potrebno je provjeriti pretpostavke.
-One ne moraju biti stoposto istinite, ali ne smiju biti jako narušene.
+One ne moraju biti sto posto istinite, ali ne smiju biti jako narušene.
 Za regresore je važna prepostavka da oni međusobno nisu jako korelirani, a za reziduale pretpostavka njihove normalnosti s jednakom varijancom.
 
-
-```{r}
-plot(players.data$`TOI/GP`, players.data$Salary) #salary vs time on ice
-plot(players.data$G, players.data$Salary) #salary vs goals
-plot(players.data$`iFOW`, players.data$Salary) #salary vs faceoff wins
-plot(players.data$`A`, players.data$Salary) #salary vs first assist
-```
 
 ```{r}
 players.data$`+/-` <- as.numeric(players.data$`+/-`)
 players.data$GP <- as.numeric(players.data$`GP`)
 players.data$A <- as.numeric(players.data$A)
+players.data$G <- as.numeric(players.data$G)
 players.data$PTS <- as.numeric(players.data$PTS)
 players.data$`TOI/GP` <- as.numeric(players.data$`TOI/GP`)
 players.data$`TOI` <- as.numeric(players.data$`TOI`)
@@ -336,6 +274,8 @@ players.data$`iHF` <- as.numeric(players.data$`iHF`)
 
 ```
 
+Prvo smo proveli smo jednostavnu linearnu regresiju s par regresora, koji su po nama bili najznačajniji.
+
 ```{r}
 fit.toigp <- lm(Salary~`TOI/GP`, data=players.data) #linearni model salary i toi/gp
 fit.g = lm(Salary~G, data=players.data) #linearni model salary i goals
@@ -344,15 +284,19 @@ fit.fow = lm(Salary~`iFOW`, data=players.data) #linearni model salary i fow
 ```
 
 
-
 Za provjeru normalnosti reziduala koristimo histogram, Q-Q plot i Kolmogorov-Smirnovljev test.
+
 
 ```{r}
 hist((fit.toigp$residuals))
+
 hist(rstandard(fit.toigp))
 
 qqnorm(rstandard(fit.toigp))
 qqline(rstandard(fit.toigp))
+
+ks.test(rstandard(fit.toigp), 'pnorm') 
+
 
 hist((fit.g$residuals))
 hist(rstandard(fit.g))
@@ -360,11 +304,17 @@ hist(rstandard(fit.g))
 qqnorm(rstandard(fit.g))
 qqline(rstandard(fit.g))
 
+ks.test(rstandard(fit.g), 'pnorm') 
+
+
 hist((fit.fow$residuals))
 hist(rstandard(fit.fow))
 
 qqnorm(rstandard(fit.fow))
 qqline(rstandard(fit.fow))
+
+ks.test(rstandard(fit.fow), 'pnorm') 
+
 
 hist((fit.a$residuals))
 hist(rstandard(fit.a))
@@ -372,19 +322,42 @@ hist(rstandard(fit.a))
 qqnorm(rstandard(fit.a))
 qqline(rstandard(fit.a))
 
-ks.test(rstandard(fit.toigp), 'pnorm') 
+ks.test(rstandard(fit.a), 'pnorm') 
 
 ```
+Iz histograma vidimo da reziduali nemaju pravilnu normalnu distribuciju. Također, postoje i odstupanja u QQ plotovima i Kolmogorov-Smirnovljevim testovima,  ali nisu od velikog značaja, pošto vidimo trend u podatcima. Zbog svega navedenog shvaćamo da naša regresija ima nedostatke, ali je prihvatljiva za daljnje testiranje modela regresije.
+
+Za provjeru pretpostavki nekoreliranosti regresora gledamo korelacijske koeficijente potencijalno sličnih regresora. 
+
+```{r}
+cor(players.data$`TOI/GP`,players.data$G)
+cor(players.data$`TOI/GP`,players.data$iFOW)
+cor(players.data$`G`,players.data$A)
+
+```
+Sukladno dobivenim korelacijskim koeficijentima, u daljnjim regresijskim modelima kombinirat ćemo zajedno parove regresora koji nisu jako korelirani.
+
 Nakon provjere pretpostavki slijedi korištenje nekih testova koji nam služe za procijenu koeficijenata, i nakon toga ocjena kvalitete modela
 T-test će imati pretpostavku da nam je neki koeficijen jednak nuli.
 
 Koeficijent regresije tj. R^2 nam je najpoznatiji ocjenjitelj kvalitete našeg modela, a on nam govori koliko dobro naš regresijski model objašnjava varijancu u y. Njegova najveća i najbolja vrijednost je 1 te težimo da nam je upravo što bliži tome. Dodavanjem regresora vrijednost R^2 će sigurno biti bolja kao i sami model, ali nam je cilj imati što bolji model s manje parametara. Zato se često koristi prilagođeni R^2 koji u obzir uzima i broj parametara tj. x-eva.
-Na kraju ako bismo htijeli tetsirati naš čitavi model koristimo F-test.
 
-
+Kombinacijom nekoreliranih regresora, napravili smo novi model višestruke linearne regresije.
 
 ```{r}
-#colnames(players.data)
+
+linReg = lm(Salary ~`+/-`+ `TOI/GP`  + `GF` + `iSF` , players.data)
+#linReg = lm(Salary ~`TOI/GP`  + `G` + `A` + `iFOW`, players.data)
+
+summary(linReg)
+qqnorm(rstandard(linReg))
+qqline(rstandard(linReg))
+```
+
+Rezultantni koeficijent determinacije nije nam bio zadovoljavajuć, te smo stoga došli na ideju kako bi bilo poželjno razdvojiti skup podataka o igračima na podskupe koji će predstavljati pojedine pozicije /LW, RW, C i D). Na taj način možemo konstruirati nove regresijske modele koji će imati svaki zasebne regresore, specifične baš za taj podskup.
+
+```{r}
+# brisanje dupliciranih vrijednosti stupaca
 brisanje <- players.data[-c(44)]
 brisanje <- brisanje[-c(41)]
 brisanje <- brisanje[-c(60)]
@@ -393,6 +366,12 @@ brisanje <- brisanje[-c(64)]
 brisanje <- brisanje[-c(53)]
 brisanje <- brisanje[-c(29)]
 brisanje <- brisanje[-c(58)]
+brisanje <- brisanje[-c(43)]
+brisanje <- brisanje[-c(60)]
+
+
+colnames(brisanje)
+
 
 ```
 
@@ -438,10 +417,11 @@ demo$`PIM` <- as.numeric(demo$`PIM`)
 demo$`DPS` <- as.numeric(demo$`DPS`)
 demo$`HA` <- as.numeric(demo$`HA`)
 demo$`iBLK` <- as.numeric(demo$`iBLK`)
-
-demo
 ```
 
+1. slučaj
+
+Višestruka regresija za procjenu plaće centara.
 
 ```{r}
 centersDemo <- demo %>% filter(Position == "C")
@@ -451,7 +431,9 @@ plot(centersRegression$residuals, pch = 16, col = "green")
 qqnorm(rstandard(centersRegression))
 qqline(rstandard(centersRegression))
 ```
+2. slučaj
 
+Višestruka regresija za procjenu plaće bekova
 ```{r}
 defenseDemo <- demo %>% filter(Position == "D")
 defenseRegression = lm(Salary ~ `TOI/GP` + PTS + iTKA + iBLK, defenseDemo)
@@ -460,7 +442,9 @@ plot(defenseRegression$residuals, pch = 16, col = "green")
 qqnorm(rstandard(defenseRegression))
 qqline(rstandard(defenseRegression))
 ```
+3. slučaj
 
+Višestruka regresija za procjenu plaće krila
 ```{r}
 wingsDemo <- demo %>% filter(Position == "R" || Position == "L")
 wingsRegression = lm(Salary ~ iFOW + GF   + `TOI/GP`+ `iBLK`  , wingsDemo)
@@ -470,16 +454,9 @@ qqnorm(rstandard(wingsRegression))
 qqline(rstandard(wingsRegression))
 ```
 
+Nakon provedenih specijaliziranih modela, vidimo da je u svakom slučaju koeficijent determinacije veći nego u prvotnom modelu bez podjele na podskupove. 
 
-```{r}
 
-#linReg = lm(Salary ~`+/-`+ `TOI/GP`  + `GF` + `iSF` + `iHF`, players.data)
-linReg = lm(Salary ~`TOI/GP`  + `G` + `A` + `iFOW`, players.data)
-
-summary(linReg)
-qqnorm(rstandard(linReg))
-qqline(rstandard(linReg))
-```
 
 ##Ovisnost visine i težine o poziciji
 Visinu i težinu cemo podijeliti u tri kategorije kako bi postale kategorijske varijable.
